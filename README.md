@@ -25,5 +25,7 @@ phastConScore.ipynb -- Related to Figure 2C
 
 add_p2g.ipynb -- Identify peak-to-gene links among closely related cell types more accurately  
 
+HIC-analysis -- Related to Figure S6G
 
-For code about gkmSVM training and explaining, please see https://github.com/GreenleafLab/scScalpChromatin/tree/main/GWAS/gkmSVM
+For code about gkmSVM training and explaining, please see: https://github.com/GreenleafLab/scScalpChromatin/tree/main/GWAS/gkmSVM  
+(Greenleaf-nature genetic-Support-Function.R, plotting.R and misc_helper.R are also from DOI: 10.1038/s41588-023-01445-4)
