@@ -1,0 +1,106 @@
+library(magrittr)
+library(ggplot2)
+library(tidyr)
+library(RColorBrewer)
+library(Seurat)
+library(circlize)
+library(ComplexHeatmap)
+setwd('/data/work/Human/03.LDSC/01-human_specific_peak/06_EndingPlot')
+
+in.files <- list.files("/data/work/Human/03.LDSC/01-human_specific_peak/05_regression/",  pattern = "*.txt", full.names = T, recursive = T)
+# in.files
+in.prefix <- list.files("/data/work/Human/03.LDSC/01-human_specific_peak/05_regression/", pattern = "*.txt", full.names = F, recursive = T)
+in.prefix <- gsub(in.prefix, pattern = "\\S_\\S+\\/|\\.regressions\\.out\\.cell_type_results\\.txt", replacement = "")
+# in.prefix
+
+plot.data <- data.frame()
+for(i in 1:length(in.files)){
+    tmp <- read.delim(in.files[i])
+    tmp$Disease <- in.prefix[i]
+    plot.data <- rbind(plot.data, tmp)
+}
+colnames(plot.data)[1] = "celltype"
+plot.data$mlog10p <- -log10(plot.data$Coefficient_P_value)
+head(plot.data)
+table(plot.data$celltype)
+
+ct = c("EX_L23_IT","EX_L4_IT","EX_L5_IT","EX_L6_IT","EX_L5_NP","EX_L6_IT_Car3","EX_L6_CT","IN_SST","IN_VIP","IN_PVALB","IN_LAMP5","OLIG","OPC","ASC","MCG","Endo")
+flitered_plot.data = plot.data[plot.data$celltype %in% ct , ]
+table(flitered_plot.data$celltype)
+
+use.data <- flitered_plot.data
+use.prefix <- "glia"
+use.data$celltype <- factor(use.data$celltype)
+# unique(use.data$Disease)
+
+plot.data.spread <- spread(use.data[,c(1,5,6)], key = "Disease", value = "mlog10p")
+rownames(plot.data.spread) <- plot.data.spread$celltype
+plot.data.spread <- plot.data.spread[, -c(1)]
+# plot.data.spread[is.na(plot.data.spread)] <- 0
+plot.data.spread <- t(plot.data.spread)
+head(plot.data.spread)
+
+
+#########################################################################
+############################ Heatmap showing ###############################
+#########################################################################
+## adjust the order
+cell_order = c("EX_L23_IT","EX_L4_IT","EX_L5_IT","EX_L6_IT","EX_L5_NP","EX_L6_IT_Car3","EX_L6_CT","IN_SST","IN_VIP","IN_PVALB","IN_LAMP5","OLIG","OPC","ASC","MCG","Endo")
+disease_order = c('Schizophrenia','Mental_neuroticism','MDD','Bipolar_disorder','PD','AD','ALS','Multiple_sclerosis','Depression','Sleep_apnoea','Epilepsy','Dementia','Memory_loss')
+plot.data.spread_plot = plot.data.spread[ disease_order , cell_order ]  
+
+# Significance testing
+pmat = plot.data.spread_plot  
+if (!is.null(pmat)){     
+  ssmt <- pmat > -log10(0.001)
+  pmat[ssmt] <-'***'
+  smt <- pmat > -log10(0.01) & pmat < -log10(0.001)
+  pmat[smt] <- '**'
+  tmat <- pmat > -log10(0.05) & pmat < -log10(0.01)
+  pmat[tmat] <- '*'
+  pmat[!ssmt & !smt & !tmat]<- ''
+} else {
+  pmat <- F
+ }
+
+bk <- c(seq(0,-log10(0.05)-0.01,by=0.01),seq(-log10(0.05)+0.01, 4 ,by= 0.01))
+colors <- c(colorRampPalette(c("#a3c9c7","#c6e5d9" , "#fbfbfb"))(length(bk)/2.5) , colorRampPalette(c("#fffcf0","#f68657","#de6449"))(length(bk)))   ## #8fbc94
+options(repr.plot.width=8, repr.plot.height=6)
+p = pheatmap(plot.data.spread_plot,
+         scale = "none",
+         cluster_row = F, 
+         cluster_col = F, 
+         border=NA,
+         angle_col = "45",
+         color = colors,
+         display_numbers = pmat,  
+         fontsize = 14, 
+         fontsize_number = 15,  
+         number_color = "grey10",
+         legend_breaks=c(0 ,2 , 4),
+         breaks=bk)
+print(p)
+
+pdf("01-human_specific_peak-LDSC-Disease_Celltype.pdf" , 8 , 6)
+    draw(p)
+dev.off()
+
+#########################################################################
+############################# DotPlot showing  ################################
+#########################################################################
+threshold <- -log10(0.05)
+
+df_long <- df_long %>%
+  mutate(point_size = ifelse(pvalue < threshold, 3, 4))  
+df_long$size = df_long$pvalue * df_long$pvalue
+
+p = ggplot(df_long, aes(x = pvalue, y = disease, color = celltype, size = size)) +
+  geom_point() + 
+  theme_classic() +
+  scale_size_continuous(range = c(2, 8)) +
+  scale_color_manual(values = cmap) +
+  geom_vline(xintercept = threshold, color = "black", linetype = "dashed", size = 1) 
+p
+pdf("dotplot-ldsc.pdf" , 6 , 6)
+    p
+dev.off()
